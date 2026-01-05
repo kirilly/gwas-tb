@@ -6,6 +6,8 @@ data/external/
 # Cache and results
 cache/
 results/
+!results/reports/
+!results/figures/
 logs/
 
 # Python
