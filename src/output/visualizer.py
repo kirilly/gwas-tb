@@ -1,7 +1,6 @@
 """Visualization module for GWAS results."""
 
 from pathlib import Path
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,8 +34,8 @@ class Visualizer:
     def manhattan_plot(
         self,
         results: GWASResult,
-        output_path: Optional[Path] = None,
-        highlight_genes: Optional[list[str]] = None,
+        output_path: Path | None = None,
+        highlight_genes: list[str] | None = None,
         threshold: float = 5e-8,
     ) -> Path:
         """Generate Manhattan plot.
@@ -117,7 +116,7 @@ class Visualizer:
     def qq_plot(
         self,
         results: GWASResult,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
     ) -> Path:
         """Generate QQ plot of p-values.
 
@@ -186,8 +185,8 @@ class Visualizer:
     def pca_plot(
         self,
         snps: pd.DataFrame,
-        labels: Optional[pd.Series] = None,
-        output_path: Optional[Path] = None,
+        labels: pd.Series | None = None,
+        output_path: Path | None = None,
         n_components: int = 2,
     ) -> Path:
         """Generate PCA plot of samples.
@@ -244,7 +243,7 @@ class Visualizer:
     def cross_drug_heatmap(
         self,
         results: dict[str, GWASResult],
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         top_n: int = 50,
     ) -> Path:
         """Generate heatmap of cross-drug associations.
@@ -306,7 +305,7 @@ class Visualizer:
     def maf_distribution(
         self,
         maf: np.ndarray,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
     ) -> Path:
         """Plot MAF distribution.
 

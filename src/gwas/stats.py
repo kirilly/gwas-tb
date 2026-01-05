@@ -1,8 +1,8 @@
 """Statistical functions for GWAS analysis."""
 
+
 import numpy as np
 from scipy import stats
-from typing import Optional
 
 
 def calculate_lambda_gc(p_values: np.ndarray) -> float:
@@ -98,7 +98,7 @@ def calculate_prps_eigenspace(
     snp: np.ndarray,
     eigenvectors: np.ndarray,
     eigenvalues: np.ndarray,
-    k: Optional[int] = None,
+    k: int | None = None,
 ) -> float:
     """Calculate PRPS using eigenspace projection (optimized O(n*k) version).
 
@@ -168,7 +168,7 @@ def calculate_prps_batch(
     snps: np.ndarray,
     eigenvectors: np.ndarray,
     eigenvalues: np.ndarray,
-    k: Optional[int] = None,
+    k: int | None = None,
 ) -> np.ndarray:
     """Calculate PRPS for multiple variants in batch (vectorized).
 

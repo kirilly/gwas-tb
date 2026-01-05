@@ -1,11 +1,9 @@
 """GWAS analysis runner."""
 
-import os
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -13,7 +11,8 @@ from tqdm import tqdm
 
 from src.config import GWASConfig
 from src.utils import get_logger
-from .stats import calculate_lambda_gc, calculate_prps, calculate_prps_batch, fdr_correction, odds_ratio_ci
+
+from .stats import calculate_lambda_gc, calculate_prps, calculate_prps_batch, fdr_correction
 
 logger = get_logger()
 
@@ -72,7 +71,7 @@ class GWASRunner:
         snps: pd.DataFrame,
         phenotype: pd.Series,
         kinship: np.ndarray,
-        covariates: Optional[pd.DataFrame] = None,
+        covariates: pd.DataFrame | None = None,
         drug_name: str = "unknown",
     ) -> GWASResult:
         """Run GWAS analysis.
@@ -108,7 +107,7 @@ class GWASRunner:
 
         if self.config.method == "lmm":
             if PYSEER_AVAILABLE:
-                logger.info(f"Using pyseer Python API (no I/O overhead)")
+                logger.info("Using pyseer Python API (no I/O overhead)")
                 results, eigenvalues, eigenvectors = self._run_pyseer_api(
                     snps_aligned, pheno_aligned, kinship_aligned, covariates
                 )
@@ -172,7 +171,7 @@ class GWASRunner:
         snps: pd.DataFrame,
         phenotype: pd.Series,
         kinship: np.ndarray,
-        covariates: Optional[pd.DataFrame],
+        covariates: pd.DataFrame | None,
     ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
         """Run Linear Mixed Model GWAS using pyseer-style approach.
 
@@ -180,7 +179,6 @@ class GWASRunner:
             Tuple of (results_df, eigenvalues, eigenvectors)
         """
         from scipy import stats
-        from scipy.linalg import cho_factor, cho_solve
 
         n_samples = len(phenotype)
         n_variants = snps.shape[1]
@@ -292,10 +290,9 @@ class GWASRunner:
         self,
         snps: pd.DataFrame,
         phenotype: pd.Series,
-        covariates: Optional[pd.DataFrame],
+        covariates: pd.DataFrame | None,
     ) -> pd.DataFrame:
         """Run simple logistic regression GWAS (no kinship correction)."""
-        from scipy import stats
         import statsmodels.api as sm
 
         results = []
@@ -362,15 +359,15 @@ class GWASRunner:
         snps: pd.DataFrame,
         phenotype: pd.Series,
         kinship: np.ndarray,
-        covariates: Optional[pd.DataFrame],
+        covariates: pd.DataFrame | None,
     ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
         """Run GWAS using pyseer Python API (no file I/O overhead).
 
         Returns:
             Tuple of (results_df, eigenvalues, eigenvectors)
         """
-        from pyseer.lmm import lmm_cov, fit_lmm_block
         from joblib import Parallel, delayed
+        from pyseer.lmm import fit_lmm_block, lmm_cov
 
         n_samples = len(phenotype)
         n_variants = snps.shape[1]
@@ -445,7 +442,7 @@ class GWASRunner:
         snps: pd.DataFrame,
         phenotype: pd.Series,
         kinship: np.ndarray,
-        covariates: Optional[pd.DataFrame],
+        covariates: pd.DataFrame | None,
     ) -> pd.DataFrame:
         """Run GWAS using pyseer CLI (kept as fallback)."""
         with tempfile.TemporaryDirectory() as tmpdir:

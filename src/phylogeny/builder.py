@@ -3,14 +3,13 @@
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 from Bio import Phylo
 
 from src.config import PhyloConfig
-from src.utils import get_logger, cached
+from src.utils import get_logger
 
 logger = get_logger()
 
@@ -35,7 +34,7 @@ class PhylogenyBuilder:
     def build_tree(
         self,
         alignment_path: Path,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
     ) -> Path:
         """Build phylogenetic tree from alignment.
 
@@ -107,9 +106,9 @@ class PhylogenyBuilder:
 
     def compute_kinship(
         self,
-        tree_path: Optional[Path] = None,
-        snps: Optional[pd.DataFrame] = None,
-        method: Optional[str] = None,
+        tree_path: Path | None = None,
+        snps: pd.DataFrame | None = None,
+        method: str | None = None,
     ) -> np.ndarray:
         """Compute kinship matrix.
 

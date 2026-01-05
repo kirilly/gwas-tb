@@ -1,8 +1,8 @@
 """Utility modules."""
 
-from .logging import setup_logging, get_logger
-from .reproducibility import set_seeds, get_git_hash
 from .cache import cached, compute_cache_key
+from .logging import get_logger, setup_logging
+from .reproducibility import get_git_hash, set_seeds
 
 __all__ = [
     "setup_logging",

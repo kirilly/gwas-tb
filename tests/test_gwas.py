@@ -1,12 +1,12 @@
 """Tests for GWAS module."""
 
 import numpy as np
-import pytest
 
 from src.gwas.stats import (
+    bonferroni_correction,
     calculate_lambda_gc,
     calculate_prps,
-    bonferroni_correction,
+    calculate_prps_batch,
     fdr_correction,
     odds_ratio_ci,
 )
@@ -108,3 +108,39 @@ def test_odds_ratio_ci_zero_cell():
     # Should not fail with zero cell
     assert not np.isnan(odds_ratio)
     assert ci_lower < odds_ratio < ci_upper
+
+
+def test_calculate_prps_batch(mock_kinship):
+    """Test batch PRPS calculation."""
+    np.random.seed(42)
+    n = mock_kinship.shape[0]
+    n_variants = 10
+
+    # Create random SNP matrix
+    snps = np.random.randint(0, 2, (n, n_variants)).astype(float)
+
+    # Compute eigendecomposition
+    eigenvalues, eigenvectors = np.linalg.eigh(mock_kinship)
+
+    # Calculate batch PRPS
+    prps_scores = calculate_prps_batch(snps, eigenvectors, eigenvalues)
+
+    # Check output shape and range
+    assert len(prps_scores) == n_variants
+    assert all(0 <= p <= 1 for p in prps_scores)
+
+
+def test_calculate_prps_batch_monomorphic(mock_kinship):
+    """Test batch PRPS with monomorphic variant."""
+    n = mock_kinship.shape[0]
+
+    # One normal variant, one monomorphic
+    snps = np.column_stack([
+        np.random.randint(0, 2, n).astype(float),
+        np.zeros(n),
+    ])
+
+    eigenvalues, eigenvectors = np.linalg.eigh(mock_kinship)
+    prps_scores = calculate_prps_batch(snps, eigenvectors, eigenvalues)
+
+    assert prps_scores[1] == 0.0  # Monomorphic should be 0

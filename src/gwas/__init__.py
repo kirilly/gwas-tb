@@ -1,10 +1,10 @@
 """GWAS analysis module."""
 
-from .runner import GWASRunner, GWASResult, GWASError
+from .runner import GWASError, GWASResult, GWASRunner
 from .stats import (
+    bonferroni_correction,
     calculate_lambda_gc,
     calculate_prps,
-    bonferroni_correction,
     fdr_correction,
 )
 

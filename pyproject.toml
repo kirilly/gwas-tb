@@ -39,7 +39,11 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+ignore = [
+    "E501",  # Line too long
+    "N806",  # Variable in function should be lowercase (scientific convention: X, W, K)
+    "F841",  # Local variable assigned but never used (intermediate vars for readability)
+]
 
 [tool.mypy]
 python_version = "3.11"

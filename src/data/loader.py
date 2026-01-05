@@ -1,7 +1,6 @@
 """Data loading module."""
 
 from pathlib import Path
-from typing import Optional
 
 import h5py
 import numpy as np
@@ -32,9 +31,9 @@ class DataLoader:
 
     def load_snp_matrix(
         self,
-        path: Optional[Path] = None,
-        n_samples: Optional[int] = None,
-        n_variants: Optional[int] = None,
+        path: Path | None = None,
+        n_samples: int | None = None,
+        n_variants: int | None = None,
     ) -> pd.DataFrame:
         """Load SNP matrix from file.
 
@@ -72,8 +71,8 @@ class DataLoader:
     def _load_hdf5(
         self,
         path: Path,
-        n_samples: Optional[int],
-        n_variants: Optional[int],
+        n_samples: int | None,
+        n_variants: int | None,
     ) -> pd.DataFrame:
         """Load SNP matrix from HDF5 file."""
         with h5py.File(path, "r") as f:
@@ -110,8 +109,8 @@ class DataLoader:
     def _load_csv(
         self,
         path: Path,
-        n_samples: Optional[int],
-        n_variants: Optional[int],
+        n_samples: int | None,
+        n_variants: int | None,
     ) -> pd.DataFrame:
         """Load SNP matrix from CSV file."""
         df = pd.read_csv(path, index_col=0, nrows=n_samples)
@@ -158,8 +157,8 @@ class DataLoader:
 
     def load_phenotypes(
         self,
-        path: Optional[Path] = None,
-        drugs: Optional[list[str]] = None,
+        path: Path | None = None,
+        drugs: list[str] | None = None,
     ) -> pd.DataFrame:
         """Load phenotype data.
 
@@ -211,7 +210,7 @@ class DataLoader:
 
     def load_who_catalogue(
         self,
-        drug: Optional[str] = None,
+        drug: str | None = None,
     ) -> pd.DataFrame:
         """Load WHO mutation catalogue.
 

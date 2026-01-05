@@ -2,7 +2,6 @@
 
 import random
 import subprocess
-from typing import Optional
 
 import numpy as np
 
@@ -28,7 +27,7 @@ def set_seeds(seed: int = 42) -> None:
         pass
 
 
-def get_git_hash() -> Optional[str]:
+def get_git_hash() -> str | None:
     """Get current git commit hash.
 
     Returns:
