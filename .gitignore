@@ -56,3 +56,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Override global gitignore for project-specific CLAUDE.md
+!.claude/
+.claude/*
+!.claude/CLAUDE.md
