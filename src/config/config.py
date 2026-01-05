@@ -54,6 +54,7 @@ class GWASConfig:
     covariates: list[str] = field(default_factory=list)
     p_threshold: float = 5e-8
     fdr_threshold: float = 0.05
+    min_maf: float = 0.01  # Also in QCConfig, but needed for pyseer CLI
 
 
 @dataclass

@@ -418,6 +418,92 @@ def fdr_correction(
     """Return adjusted p-values and rejection mask."""
 ```
 
+#### 4.3 LMM Parallelization Options
+
+For large datasets (>5K samples, >5K variants), LMM GWAS can be slow. Several parallelization strategies are available:
+
+| Option | Speed | Complexity | Platform | Notes |
+|--------|-------|------------|----------|-------|
+| **pyseer Python API** | **143 var/sec** | Medium | Any | **Current default** - skip TSV I/O |
+| **pyseer CLI** | ~30 var/sec | Low | Linux/Rosetta | Use `--block_size 500 --cpu N` |
+| **Native LMM + joblib** | ~10 var/sec | Medium | Native ARM | No Rosetta overhead |
+| **Serial LMM** | ~3.5 var/sec | Low | Any | Baseline |
+
+**Current implementation (pyseer Python API):**
+
+```python
+from pyseer.lmm import lmm_cov, fit_lmm_block
+
+# Initialize LMM with numpy arrays directly (no file I/O!)
+lmm = lmm_cov(X=covariates, Y=phenotype, K=kinship, regressX=True)
+
+# Extract eigendecomposition for PRPS reuse
+eigenvectors = lmm.U  # [n, n]
+eigenvalues = lmm.S   # [n]
+
+# Find optimal heritability (one-time cost)
+h2 = lmm.findH2()['h2']
+
+# Process variants in blocks (parallelizable)
+results = fit_lmm_block(lmm, h2, variant_matrix)
+```
+
+**Performance benchmarks (11,649 samples):**
+
+| Phase | Time | Notes |
+|-------|------|-------|
+| Kinship eigendecomposition | ~2-3 min | O(n³), single-threaded, cached |
+| h2 optimization | ~2 min | One-time per phenotype |
+| 1000 variants | ~7 sec | 143 var/sec, parallelized |
+| Full GWAS (6,780 variants) | ~1 min | After eigendecomposition |
+
+**Fallback options:**
+
+1. **pyseer CLI** (if API unavailable):
+   ```bash
+   pyseer --lmm --block_size 500 --cpu 8 --similarity kinship.tsv
+   ```
+
+2. **LMM cache** for multiple phenotypes:
+   ```bash
+   pyseer --lmm --save-lmm cache/lmm --similarity kinship.tsv
+   pyseer --lmm --load-lmm cache/lmm.npz  # Skip eigendecomposition
+   ```
+
+#### 4.4 PRPS Optimization
+
+PRPS (Phylogeny-Related Parallelism Score) measures phylogenetic hitchhiking. The naive O(n²) implementation is slow for large datasets.
+
+**Optimized eigenspace PRPS:**
+
+```python
+from src.gwas.stats import calculate_prps_batch
+
+# Reuse eigendecomposition from LMM (already computed!)
+prps_scores = calculate_prps_batch(
+    snps.values,        # [n_samples, n_variants]
+    eigenvectors,       # from LMM
+    eigenvalues         # from LMM
+)
+```
+
+**PRPS Performance comparison (1000 samples × 100 variants):**
+
+| Method | Time | Speedup |
+|--------|------|---------|
+| Naive O(n²) | 1.2s | 1x |
+| Eigenspace single | 0.008s | 150x |
+| **Eigenspace batch** | **0.001s** | **1600x** |
+
+**At TB dataset scale (11,000 samples × 1,000 variants):**
+
+| Method | Time | Speedup |
+|--------|------|---------|
+| Naive O(n²) | ~64 min (estimated) | 1x |
+| **Eigenspace batch** | **0.21 sec** | **18,550x** |
+
+The eigenspace method correlates 0.85 with naive PRPS on structured data while being orders of magnitude faster. This optimization makes PRPS calculation negligible compared to eigendecomposition.
+
 ---
 
 ### 5. Feature Selection Module

@@ -1,6 +1,10 @@
 """GWAS analysis runner."""
 
+import os
+import subprocess
+import tempfile
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -9,9 +13,18 @@ from tqdm import tqdm
 
 from src.config import GWASConfig
 from src.utils import get_logger
-from .stats import calculate_lambda_gc, calculate_prps, fdr_correction, odds_ratio_ci
+from .stats import calculate_lambda_gc, calculate_prps, calculate_prps_batch, fdr_correction, odds_ratio_ci
 
 logger = get_logger()
+
+PYSEER_AVAILABLE = False
+try:
+    result = subprocess.run(["pyseer", "--version"], capture_output=True, text=True)
+    if result.returncode == 0:
+        PYSEER_AVAILABLE = True
+        logger.info(f"pyseer available: {result.stdout.strip()}")
+except FileNotFoundError:
+    pass
 
 
 class GWASError(Exception):
@@ -44,13 +57,15 @@ class GWASResult:
 class GWASRunner:
     """Run genome-wide association analysis."""
 
-    def __init__(self, config: GWASConfig) -> None:
+    def __init__(self, config: GWASConfig, n_jobs: int = 1) -> None:
         """Initialize GWASRunner.
 
         Args:
             config: GWAS configuration
+            n_jobs: Number of parallel jobs for pyseer (default 1)
         """
         self.config = config
+        self.n_jobs = n_jobs
 
     def run(
         self,
@@ -87,18 +102,44 @@ class GWASRunner:
         if covariates is not None:
             covariates = covariates.loc[common]
 
-        # Run analysis
+        # Run analysis - returns results and optionally eigendecomposition
+        eigenvalues = None
+        eigenvectors = None
+
         if self.config.method == "lmm":
-            results = self._run_lmm(snps_aligned, pheno_aligned, kinship_aligned, covariates)
+            if PYSEER_AVAILABLE:
+                logger.info(f"Using pyseer Python API (no I/O overhead)")
+                results, eigenvalues, eigenvectors = self._run_pyseer_api(
+                    snps_aligned, pheno_aligned, kinship_aligned, covariates
+                )
+            else:
+                logger.info("Using native LMM (serial)")
+                results, eigenvalues, eigenvectors = self._run_lmm(
+                    snps_aligned, pheno_aligned, kinship_aligned, covariates
+                )
         else:
             results = self._run_simple(snps_aligned, pheno_aligned, covariates)
 
-        # Calculate PRPS for each variant
-        logger.info("Calculating PRPS scores")
-        prps_scores = []
-        for var in tqdm(snps_aligned.columns, desc="PRPS", disable=len(snps_aligned.columns) < 100):
-            prps = calculate_prps(snps_aligned[var].values, kinship_aligned)
-            prps_scores.append(prps)
+        # Calculate PRPS - use optimized eigenspace version if we have eigendecomposition
+        if eigenvalues is not None and eigenvectors is not None:
+            logger.info("Calculating PRPS scores (optimized eigenspace batch)")
+            prps_scores = calculate_prps_batch(
+                snps_aligned.values, eigenvectors, eigenvalues
+            )
+        else:
+            # Fallback to naive O(n²) version with parallelization
+            logger.info(f"Calculating PRPS scores with {self.n_jobs} jobs (naive method)")
+            if self.n_jobs > 1:
+                from joblib import Parallel, delayed
+                prps_scores = Parallel(n_jobs=self.n_jobs)(
+                    delayed(calculate_prps)(snps_aligned[var].values, kinship_aligned)
+                    for var in tqdm(snps_aligned.columns, desc="PRPS", disable=len(snps_aligned.columns) < 100)
+                )
+            else:
+                prps_scores = []
+                for var in tqdm(snps_aligned.columns, desc="PRPS", disable=len(snps_aligned.columns) < 100):
+                    prps = calculate_prps(snps_aligned[var].values, kinship_aligned)
+                    prps_scores.append(prps)
         results["prps"] = prps_scores
 
         # Calculate lambda GC
@@ -132,8 +173,12 @@ class GWASRunner:
         phenotype: pd.Series,
         kinship: np.ndarray,
         covariates: Optional[pd.DataFrame],
-    ) -> pd.DataFrame:
-        """Run Linear Mixed Model GWAS using pyseer-style approach."""
+    ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+        """Run Linear Mixed Model GWAS using pyseer-style approach.
+
+        Returns:
+            Tuple of (results_df, eigenvalues, eigenvectors)
+        """
         from scipy import stats
         from scipy.linalg import cho_factor, cho_solve
 
@@ -150,6 +195,7 @@ class GWASRunner:
             X_cov = np.ones((n_samples, 1))
 
         # Eigendecomposition of kinship for efficient LMM
+        logger.info("Computing eigendecomposition of kinship matrix...")
         eigenvalues, eigenvectors = np.linalg.eigh(kinship)
         eigenvalues = np.maximum(eigenvalues, 1e-10)  # Ensure positive
 
@@ -240,7 +286,7 @@ class GWASRunner:
                 "se": snp_se,
             })
 
-        return pd.DataFrame(results)
+        return pd.DataFrame(results), eigenvalues, eigenvectors
 
     def _run_simple(
         self,
@@ -310,6 +356,180 @@ class GWASRunner:
             })
 
         return pd.DataFrame(results)
+
+    def _run_pyseer_api(
+        self,
+        snps: pd.DataFrame,
+        phenotype: pd.Series,
+        kinship: np.ndarray,
+        covariates: Optional[pd.DataFrame],
+    ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+        """Run GWAS using pyseer Python API (no file I/O overhead).
+
+        Returns:
+            Tuple of (results_df, eigenvalues, eigenvectors)
+        """
+        from pyseer.lmm import lmm_cov, fit_lmm_block
+        from joblib import Parallel, delayed
+
+        n_samples = len(phenotype)
+        n_variants = snps.shape[1]
+
+        # Prepare phenotype as column vector
+        y = np.reshape(phenotype.values.astype(float), (-1, 1))
+
+        # Prepare covariates (add intercept)
+        if covariates is not None and len(covariates.columns) > 0:
+            X = np.c_[covariates.values, np.ones((n_samples, 1))]
+        else:
+            X = np.ones((n_samples, 1))
+
+        # Initialize LMM with kinship matrix directly (no file I/O!)
+        logger.info("Initializing LMM (eigendecomposition)...")
+        lmm = lmm_cov(X=X, Y=y, K=kinship, regressX=True, inplace=False)
+
+        # Find optimal heritability (this triggers eigendecomposition)
+        logger.info("Finding optimal h2...")
+        result = lmm.findH2()
+        h2 = result['h2']
+        logger.info(f"Heritability h2 = {h2:.3f}")
+
+        # Extract eigendecomposition from pyseer LMM object for PRPS reuse
+        # pyseer populates lmm.U (eigenvectors) and lmm.S (eigenvalues) during findH2()
+        eigenvectors = lmm.U
+        eigenvalues = lmm.S
+
+        # Process variants in blocks for parallelization
+        block_size = max(100, n_variants // (self.n_jobs * 2))
+        n_blocks = (n_variants + block_size - 1) // block_size
+
+        logger.info(f"Processing {n_variants} variants in {n_blocks} blocks (size={block_size}) with {self.n_jobs} jobs")
+
+        def process_block(start_idx: int, end_idx: int) -> dict:
+            """Process a block of variants."""
+            variant_block = snps.iloc[:, start_idx:end_idx].values.astype(float)
+            return fit_lmm_block(lmm, h2, variant_block)
+
+        # Parallel block processing
+        block_ranges = [(i * block_size, min((i + 1) * block_size, n_variants))
+                        for i in range(n_blocks)]
+
+        if self.n_jobs > 1:
+            block_results = Parallel(n_jobs=self.n_jobs, prefer="threads")(
+                delayed(process_block)(start, end) for start, end in block_ranges
+            )
+        else:
+            block_results = [process_block(start, end) for start, end in block_ranges]
+
+        # Combine results
+        all_p_values = np.concatenate([r['p_values'] for r in block_results])
+        all_betas = np.concatenate([r['beta'] for r in block_results])
+        all_ses = np.concatenate([r['bse'] for r in block_results])
+
+        # Build results DataFrame
+        results = pd.DataFrame({
+            "variant": snps.columns,
+            "p_value": all_p_values,
+            "beta": all_betas,
+            "se": all_ses,
+            "odds_ratio": np.exp(all_betas),
+            "ci_lower": np.exp(all_betas - 1.96 * all_ses),
+            "ci_upper": np.exp(all_betas + 1.96 * all_ses),
+        })
+
+        logger.info(f"pyseer API returned {len(results)} variants")
+        return results, eigenvalues, eigenvectors
+
+    def _run_pyseer_cli(
+        self,
+        snps: pd.DataFrame,
+        phenotype: pd.Series,
+        kinship: np.ndarray,
+        covariates: Optional[pd.DataFrame],
+    ) -> pd.DataFrame:
+        """Run GWAS using pyseer CLI (kept as fallback)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+
+            # 1. Write phenotypes (tab-separated: sample, phenotype)
+            pheno_file = tmpdir / "phenotypes.tsv"
+            pheno_df = pd.DataFrame({"samples": phenotype.index, "phenotype": phenotype.values})
+            pheno_df.to_csv(pheno_file, sep="\t", index=False)
+
+            # 2. Write variants in Rtab format (variant as row, samples as columns)
+            pres_file = tmpdir / "variants.Rtab"
+            snps_T = snps.T
+            snps_T.index.name = "Gene"
+            snps_T.to_csv(pres_file, sep="\t")
+
+            # 3. Write similarity matrix (kinship)
+            sim_file = tmpdir / "similarity.tsv"
+            sim_df = pd.DataFrame(kinship, index=phenotype.index, columns=phenotype.index)
+            sim_df.to_csv(sim_file, sep="\t")
+
+            # 4. Run pyseer
+            output_file = tmpdir / "results.tsv"
+            # Use smaller block_size for better parallelization
+            # Default 3000 gives only ~2 blocks for 6K variants
+            # 500 gives ~14 blocks → real parallel speedup
+            block_size = min(500, max(100, snps.shape[1] // (self.n_jobs * 2)))
+
+            cmd = [
+                "pyseer",
+                "--phenotypes", str(pheno_file),
+                "--pres", str(pres_file),
+                "--similarity", str(sim_file),
+                "--lmm",
+                "--cpu", str(self.n_jobs),
+                "--block_size", str(block_size),
+                "--min-af", str(self.config.min_maf),
+                "--max-af", str(1 - self.config.min_maf),
+            ]
+
+            logger.info(f"Running pyseer: {' '.join(cmd)}")
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=str(tmpdir),
+            )
+
+            if result.returncode != 0:
+                logger.error(f"pyseer failed: {result.stderr}")
+                raise GWASError(f"pyseer failed: {result.stderr}")
+
+            # 5. Parse output
+            # pyseer outputs to stdout in format:
+            # variant af  filter-pvalue   lrt-pvalue  beta    beta-std-err    intercept   ...
+            lines = result.stdout.strip().split("\n")
+            if not lines:
+                raise GWASError("pyseer returned empty output")
+
+            header = lines[0].split("\t")
+            data = []
+            for line in lines[1:]:
+                fields = line.split("\t")
+                if len(fields) >= 6:
+                    try:
+                        data.append({
+                            "variant": fields[0],
+                            "af": float(fields[1]) if fields[1] != "NA" else np.nan,
+                            "p_value": float(fields[3]) if fields[3] != "NA" else np.nan,  # lrt-pvalue
+                            "beta": float(fields[4]) if fields[4] != "NA" else np.nan,
+                            "se": float(fields[5]) if fields[5] != "NA" else np.nan,
+                        })
+                    except (ValueError, IndexError) as e:
+                        logger.warning(f"Failed to parse line: {line[:50]}... ({e})")
+
+            results = pd.DataFrame(data)
+
+            # Calculate odds ratios from beta
+            results["odds_ratio"] = np.exp(results["beta"])
+            results["ci_lower"] = np.exp(results["beta"] - 1.96 * results["se"])
+            results["ci_upper"] = np.exp(results["beta"] + 1.96 * results["se"])
+
+            logger.info(f"pyseer returned {len(results)} variants")
+            return results
 
     def _align_kinship(
         self,

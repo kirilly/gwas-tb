@@ -311,6 +311,11 @@ notes: |
 - [x] Load data using DataLoader
 - [x] Run QC using Preprocessor (MAF >= 0.01)
 - [x] Compute SNP-based kinship matrix (cached)
+- [ ] Parallelize GWAS implementation:
+  - [ ] Try pyseer library (optimized for bacterial GWAS)
+  - [ ] Fallback: joblib parallelization if pyseer fails
+- [ ] Delete ad-hoc script (`scripts/run_baseline_gwas.py`)
+- [ ] Fix main pipeline config (`config/base.yaml` paths)
 - [ ] Run LMM GWAS for RIF
 - [ ] Generate Manhattan and QQ plots
 - [ ] Save results to `results/phase1/`
@@ -321,15 +326,9 @@ notes: |
 - [ ] Manhattan plot shows clear peak(s)
 - [ ] Results table contains expected columns
 
-**Performance Issues Identified**:
-- Current LMM implementation: ~3.5 variants/sec (single-threaded)
-- Estimated time: 30+ minutes for 6,780 variants
-- CPU utilization: only 20% (80% idle)
-
-**Remediation Plan**:
-1. Try pyseer library (optimized for bacterial GWAS)
-2. Fallback: joblib parallelization
-3. Delete ad-hoc script (`scripts/run_baseline_gwas.py`) and fix main pipeline
+**Notes**:
+- Current LMM: ~3.5 variants/sec (single-threaded), 30+ min for 6,780 variants
+- CPU utilization only 20% - parallelization needed
 
 ---
 
