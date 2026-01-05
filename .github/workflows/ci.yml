@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,34 +17,21 @@ jobs:
         with:
           pixi-version: v0.39.2
 
-      - name: Run ruff check
+      # 1. Lint first (fastest, catches style issues early)
+      - name: Lint (ruff check)
         run: pixi run ruff check src/ tests/
 
-      - name: Run ruff format check
+      - name: Format check (ruff format)
         run: pixi run ruff format --check src/ tests/
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      # 2. Type check (catches type errors before runtime)
+      - name: Type check (mypy)
+        run: pixi run mypy src/
 
-      - name: Install pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
-        with:
-          pixi-version: v0.39.2
+      # 3. Unit tests (fast, isolated tests)
+      - name: Unit tests
+        run: pixi run pytest tests/ -v --tb=short --ignore=tests/test_integration.py
 
-      - name: Run tests
-        run: pixi run pytest tests/ -v --tb=short
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
-        with:
-          pixi-version: v0.39.2
-
-      - name: Run mypy
-        run: pixi run mypy src/ --ignore-missing-imports
+      # 4. Integration tests (slower, end-to-end tests)
+      - name: Integration tests
+        run: pixi run pytest tests/test_integration.py -v --tb=short

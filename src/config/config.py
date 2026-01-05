@@ -61,9 +61,7 @@ class GWASConfig:
 class DrugConfig:
     """Drug analysis configuration."""
 
-    order: list[str] = field(
-        default_factory=lambda: ["RIF", "INH", "FQ", "STR", "EMB", "PZA"]
-    )
+    order: list[str] = field(default_factory=lambda: ["RIF", "INH", "FQ", "STR", "EMB", "PZA"])
     conditional: bool = True
 
 
@@ -172,9 +170,10 @@ class Config:
         """Convert config to dictionary."""
         import dataclasses
 
-        def to_dict_recursive(obj: Any) -> Any:
-            if dataclasses.is_dataclass(obj):
+        def to_dict_recursive(obj: Any) -> dict[str, Any] | Any:
+            if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
                 return {k: to_dict_recursive(v) for k, v in dataclasses.asdict(obj).items()}
             return obj
 
-        return to_dict_recursive(self)
+        result = to_dict_recursive(self)
+        return result

@@ -52,11 +52,13 @@ def test_filter_by_missingness_variants(preprocessor, small_snp_matrix):
 def test_remove_monomorphic(preprocessor):
     """Test removal of monomorphic variants."""
     # Create matrix with some monomorphic columns
-    data = np.array([
-        [0, 0, 1, 2],
-        [0, 1, 1, 2],
-        [0, 2, 1, 0],
-    ])
+    data = np.array(
+        [
+            [0, 0, 1, 2],
+            [0, 1, 1, 2],
+            [0, 2, 1, 0],
+        ]
+    )
     df = pd.DataFrame(data, columns=["mono1", "poly1", "mono2", "poly2"])
 
     filtered, removed = preprocessor.remove_monomorphic(df)

@@ -47,9 +47,11 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.11"
-warn_return_any = true
+warn_return_any = false  # numpy returns Any, not useful for scientific code
 warn_unused_ignores = true
 disallow_untyped_defs = true
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

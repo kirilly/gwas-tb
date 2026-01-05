@@ -1,6 +1,5 @@
 """Statistical functions for GWAS analysis."""
 
-
 import numpy as np
 from scipy import stats
 
@@ -295,9 +294,7 @@ def fdr_correction(
     if len(valid_p) == 0:
         return p_values, np.zeros(len(p_values), dtype=bool)
 
-    reject, adjusted_valid, _, _ = multipletests(
-        valid_p, alpha=alpha, method="fdr_bh"
-    )
+    reject, adjusted_valid, _, _ = multipletests(valid_p, alpha=alpha, method="fdr_bh")
 
     # Reconstruct full arrays
     adjusted = np.full_like(p_values, np.nan)
@@ -310,7 +307,10 @@ def fdr_correction(
 
 
 def odds_ratio_ci(
-    n11: int, n10: int, n01: int, n00: int,
+    n11: int,
+    n10: int,
+    n01: int,
+    n00: int,
     alpha: float = 0.05,
 ) -> tuple[float, float, float]:
     """Calculate odds ratio and confidence interval.
@@ -325,21 +325,22 @@ def odds_ratio_ci(
     Returns:
         Tuple of (odds_ratio, ci_lower, ci_upper)
     """
-    # Add 0.5 to avoid division by zero (Haldane correction)
+    # Apply Haldane correction (add 0.5) if any cell is zero
+    a, b, c, d = float(n11), float(n10), float(n01), float(n00)
     if n11 == 0 or n10 == 0 or n01 == 0 or n00 == 0:
-        n11 += 0.5
-        n10 += 0.5
-        n01 += 0.5
-        n00 += 0.5
+        a += 0.5
+        b += 0.5
+        c += 0.5
+        d += 0.5
 
-    odds_ratio = (n11 * n00) / (n10 * n01)
+    odds_ratio = (a * d) / (b * c)
 
     # Log odds ratio and SE
     log_or = np.log(odds_ratio)
-    se = np.sqrt(1/n11 + 1/n10 + 1/n01 + 1/n00)
+    se = np.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
 
     # CI
-    z = stats.norm.ppf(1 - alpha/2)
+    z = stats.norm.ppf(1 - alpha / 2)
     ci_lower = np.exp(log_or - z * se)
     ci_upper = np.exp(log_or + z * se)
 

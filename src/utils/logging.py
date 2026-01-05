@@ -67,8 +67,6 @@ def get_logger(name: str = "tb-gwas") -> logging.Logger:
         # Return basic logger if not configured
         logger.setLevel(logging.INFO)
         handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s | %(levelname)-5s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-5s | %(message)s"))
         logger.addHandler(handler)
     return logger

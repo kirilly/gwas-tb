@@ -120,25 +120,30 @@ class GWASRunner:
             results = self._run_simple(snps_aligned, pheno_aligned, covariates)
 
         # Calculate PRPS - use optimized eigenspace version if we have eigendecomposition
+        prps_scores: list[float] | np.ndarray
         if eigenvalues is not None and eigenvectors is not None:
             logger.info("Calculating PRPS scores (optimized eigenspace batch)")
-            prps_scores = calculate_prps_batch(
-                snps_aligned.values, eigenvectors, eigenvalues
-            )
+            prps_scores = calculate_prps_batch(snps_aligned.values, eigenvectors, eigenvalues)
         else:
             # Fallback to naive O(n²) version with parallelization
             logger.info(f"Calculating PRPS scores with {self.n_jobs} jobs (naive method)")
             if self.n_jobs > 1:
                 from joblib import Parallel, delayed
+
                 prps_scores = Parallel(n_jobs=self.n_jobs)(
                     delayed(calculate_prps)(snps_aligned[var].values, kinship_aligned)
-                    for var in tqdm(snps_aligned.columns, desc="PRPS", disable=len(snps_aligned.columns) < 100)
+                    for var in tqdm(
+                        snps_aligned.columns, desc="PRPS", disable=len(snps_aligned.columns) < 100
+                    )
                 )
             else:
-                prps_scores = []
-                for var in tqdm(snps_aligned.columns, desc="PRPS", disable=len(snps_aligned.columns) < 100):
+                prps_list: list[float] = []
+                for var in tqdm(
+                    snps_aligned.columns, desc="PRPS", disable=len(snps_aligned.columns) < 100
+                ):
                     prps = calculate_prps(snps_aligned[var].values, kinship_aligned)
-                    prps_scores.append(prps)
+                    prps_list.append(prps)
+                prps_scores = prps_list
         results["prps"] = prps_scores
 
         # Calculate lambda GC
@@ -210,15 +215,17 @@ class GWASRunner:
 
             # Skip if monomorphic
             if np.var(snp_vec) == 0:
-                results.append({
-                    "variant": var_id,
-                    "p_value": np.nan,
-                    "odds_ratio": np.nan,
-                    "ci_lower": np.nan,
-                    "ci_upper": np.nan,
-                    "beta": np.nan,
-                    "se": np.nan,
-                })
+                results.append(
+                    {
+                        "variant": var_id,
+                        "p_value": np.nan,
+                        "odds_ratio": np.nan,
+                        "ci_lower": np.nan,
+                        "ci_upper": np.nan,
+                        "beta": np.nan,
+                        "se": np.nan,
+                    }
+                )
                 continue
 
             # Rotate SNP
@@ -274,15 +281,17 @@ class GWASRunner:
                 ci_lower = np.nan
                 ci_upper = np.nan
 
-            results.append({
-                "variant": var_id,
-                "p_value": p_value,
-                "odds_ratio": odds_ratio,
-                "ci_lower": ci_lower,
-                "ci_upper": ci_upper,
-                "beta": snp_beta,
-                "se": snp_se,
-            })
+            results.append(
+                {
+                    "variant": var_id,
+                    "p_value": p_value,
+                    "odds_ratio": odds_ratio,
+                    "ci_lower": ci_lower,
+                    "ci_upper": ci_upper,
+                    "beta": snp_beta,
+                    "se": snp_se,
+                }
+            )
 
         return pd.DataFrame(results), eigenvalues, eigenvectors
 
@@ -302,15 +311,17 @@ class GWASRunner:
             snp_vec = snps[var_id].values
 
             if np.var(snp_vec) == 0:
-                results.append({
-                    "variant": var_id,
-                    "p_value": np.nan,
-                    "odds_ratio": np.nan,
-                    "ci_lower": np.nan,
-                    "ci_upper": np.nan,
-                    "beta": np.nan,
-                    "se": np.nan,
-                })
+                results.append(
+                    {
+                        "variant": var_id,
+                        "p_value": np.nan,
+                        "odds_ratio": np.nan,
+                        "ci_lower": np.nan,
+                        "ci_upper": np.nan,
+                        "beta": np.nan,
+                        "se": np.nan,
+                    }
+                )
                 continue
 
             try:
@@ -342,15 +353,17 @@ class GWASRunner:
                 ci_lower = np.nan
                 ci_upper = np.nan
 
-            results.append({
-                "variant": var_id,
-                "p_value": p_value,
-                "odds_ratio": odds_ratio,
-                "ci_lower": ci_lower,
-                "ci_upper": ci_upper,
-                "beta": snp_beta,
-                "se": snp_se,
-            })
+            results.append(
+                {
+                    "variant": var_id,
+                    "p_value": p_value,
+                    "odds_ratio": odds_ratio,
+                    "ci_lower": ci_lower,
+                    "ci_upper": ci_upper,
+                    "beta": snp_beta,
+                    "se": snp_se,
+                }
+            )
 
         return pd.DataFrame(results)
 
@@ -388,7 +401,7 @@ class GWASRunner:
         # Find optimal heritability (this triggers eigendecomposition)
         logger.info("Finding optimal h2...")
         result = lmm.findH2()
-        h2 = result['h2']
+        h2 = result["h2"]
         logger.info(f"Heritability h2 = {h2:.3f}")
 
         # Extract eigendecomposition from pyseer LMM object for PRPS reuse
@@ -400,7 +413,9 @@ class GWASRunner:
         block_size = max(100, n_variants // (self.n_jobs * 2))
         n_blocks = (n_variants + block_size - 1) // block_size
 
-        logger.info(f"Processing {n_variants} variants in {n_blocks} blocks (size={block_size}) with {self.n_jobs} jobs")
+        logger.info(
+            f"Processing {n_variants} variants in {n_blocks} blocks (size={block_size}) with {self.n_jobs} jobs"
+        )
 
         def process_block(start_idx: int, end_idx: int) -> dict:
             """Process a block of variants."""
@@ -408,8 +423,9 @@ class GWASRunner:
             return fit_lmm_block(lmm, h2, variant_block)
 
         # Parallel block processing
-        block_ranges = [(i * block_size, min((i + 1) * block_size, n_variants))
-                        for i in range(n_blocks)]
+        block_ranges = [
+            (i * block_size, min((i + 1) * block_size, n_variants)) for i in range(n_blocks)
+        ]
 
         if self.n_jobs > 1:
             block_results = Parallel(n_jobs=self.n_jobs, prefer="threads")(
@@ -419,20 +435,22 @@ class GWASRunner:
             block_results = [process_block(start, end) for start, end in block_ranges]
 
         # Combine results
-        all_p_values = np.concatenate([r['p_values'] for r in block_results])
-        all_betas = np.concatenate([r['beta'] for r in block_results])
-        all_ses = np.concatenate([r['bse'] for r in block_results])
+        all_p_values = np.concatenate([r["p_values"] for r in block_results])
+        all_betas = np.concatenate([r["beta"] for r in block_results])
+        all_ses = np.concatenate([r["bse"] for r in block_results])
 
         # Build results DataFrame
-        results = pd.DataFrame({
-            "variant": snps.columns,
-            "p_value": all_p_values,
-            "beta": all_betas,
-            "se": all_ses,
-            "odds_ratio": np.exp(all_betas),
-            "ci_lower": np.exp(all_betas - 1.96 * all_ses),
-            "ci_upper": np.exp(all_betas + 1.96 * all_ses),
-        })
+        results = pd.DataFrame(
+            {
+                "variant": snps.columns,
+                "p_value": all_p_values,
+                "beta": all_betas,
+                "se": all_ses,
+                "odds_ratio": np.exp(all_betas),
+                "ci_lower": np.exp(all_betas - 1.96 * all_ses),
+                "ci_upper": np.exp(all_betas + 1.96 * all_ses),
+            }
+        )
 
         logger.info(f"pyseer API returned {len(results)} variants")
         return results, eigenvalues, eigenvectors
@@ -445,8 +463,8 @@ class GWASRunner:
         covariates: pd.DataFrame | None,
     ) -> pd.DataFrame:
         """Run GWAS using pyseer CLI (kept as fallback)."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir_str:
+            tmpdir = Path(tmpdir_str)
 
             # 1. Write phenotypes (tab-separated: sample, phenotype)
             pheno_file = tmpdir / "phenotypes.tsv"
@@ -473,14 +491,21 @@ class GWASRunner:
 
             cmd = [
                 "pyseer",
-                "--phenotypes", str(pheno_file),
-                "--pres", str(pres_file),
-                "--similarity", str(sim_file),
+                "--phenotypes",
+                str(pheno_file),
+                "--pres",
+                str(pres_file),
+                "--similarity",
+                str(sim_file),
                 "--lmm",
-                "--cpu", str(self.n_jobs),
-                "--block_size", str(block_size),
-                "--min-af", str(self.config.min_maf),
-                "--max-af", str(1 - self.config.min_maf),
+                "--cpu",
+                str(self.n_jobs),
+                "--block_size",
+                str(block_size),
+                "--min-af",
+                str(self.config.min_maf),
+                "--max-af",
+                str(1 - self.config.min_maf),
             ]
 
             logger.info(f"Running pyseer: {' '.join(cmd)}")
@@ -508,13 +533,17 @@ class GWASRunner:
                 fields = line.split("\t")
                 if len(fields) >= 6:
                     try:
-                        data.append({
-                            "variant": fields[0],
-                            "af": float(fields[1]) if fields[1] != "NA" else np.nan,
-                            "p_value": float(fields[3]) if fields[3] != "NA" else np.nan,  # lrt-pvalue
-                            "beta": float(fields[4]) if fields[4] != "NA" else np.nan,
-                            "se": float(fields[5]) if fields[5] != "NA" else np.nan,
-                        })
+                        data.append(
+                            {
+                                "variant": fields[0],
+                                "af": float(fields[1]) if fields[1] != "NA" else np.nan,
+                                "p_value": float(fields[3])
+                                if fields[3] != "NA"
+                                else np.nan,  # lrt-pvalue
+                                "beta": float(fields[4]) if fields[4] != "NA" else np.nan,
+                                "se": float(fields[5]) if fields[5] != "NA" else np.nan,
+                            }
+                        )
                     except (ValueError, IndexError) as e:
                         logger.warning(f"Failed to parse line: {line[:50]}... ({e})")
 

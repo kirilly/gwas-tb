@@ -1,6 +1,7 @@
 """Visualization module for GWAS results."""
 
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -98,7 +99,8 @@ class Visualizer:
 
         # Add lambda GC annotation
         ax.text(
-            0.02, 0.98,
+            0.02,
+            0.98,
             f"Lambda GC = {results.lambda_gc:.3f}",
             transform=ax.transAxes,
             fontsize=10,
@@ -164,7 +166,8 @@ class Visualizer:
 
         # Lambda annotation
         ax.text(
-            0.05, 0.95,
+            0.05,
+            0.95,
             f"Lambda GC = {results.lambda_gc:.3f}",
             transform=ax.transAxes,
             fontsize=12,
@@ -219,7 +222,8 @@ class Visualizer:
         if labels is not None:
             labels_aligned = labels.loc[snps.index]
             scatter = ax.scatter(
-                pcs[:, 0], pcs[:, 1],
+                pcs[:, 0],
+                pcs[:, 1],
                 c=labels_aligned.values,
                 cmap="coolwarm",
                 s=30,
@@ -229,8 +233,8 @@ class Visualizer:
         else:
             ax.scatter(pcs[:, 0], pcs[:, 1], s=30, alpha=0.7)
 
-        ax.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
-        ax.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
+        ax.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0] * 100:.1f}%)")
+        ax.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1] * 100:.1f}%)")
         ax.set_title("PCA of Samples")
 
         plt.tight_layout()
@@ -262,12 +266,12 @@ class Visualizer:
         drugs = list(results.keys())
 
         # Get union of top variants
-        all_variants = set()
+        all_variants_set: set[Any] = set()
         for drug, result in results.items():
             top = result.get_top_hits(top_n)
-            all_variants.update(top["variant"].tolist())
+            all_variants_set.update(top["variant"].tolist())
 
-        all_variants = sorted(all_variants)
+        all_variants = sorted(all_variants_set)
 
         # Build matrix of -log10(p)
         matrix = np.zeros((len(all_variants), len(drugs)))

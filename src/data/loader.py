@@ -95,12 +95,16 @@ class DataLoader:
 
             # Get sample and variant IDs if available
             if "sample_ids" in f:
-                sample_ids = [s.decode() if isinstance(s, bytes) else s for s in f["sample_ids"][:n_s]]
+                sample_ids = [
+                    s.decode() if isinstance(s, bytes) else s for s in f["sample_ids"][:n_s]
+                ]
             else:
                 sample_ids = [f"sample_{i}" for i in range(n_s)]
 
             if "variant_ids" in f:
-                variant_ids = [v.decode() if isinstance(v, bytes) else v for v in f["variant_ids"][:n_v]]
+                variant_ids = [
+                    v.decode() if isinstance(v, bytes) else v for v in f["variant_ids"][:n_v]
+                ]
             else:
                 variant_ids = [f"var_{i}" for i in range(n_v)]
 
@@ -256,9 +260,7 @@ class DataLoader:
         n_pheno_only = len(phenotypes.index) - len(common)
 
         if n_snp_only > 0 or n_pheno_only > 0:
-            logger.warning(
-                f"Sample mismatch: {n_snp_only} SNP-only, {n_pheno_only} phenotype-only"
-            )
+            logger.warning(f"Sample mismatch: {n_snp_only} SNP-only, {n_pheno_only} phenotype-only")
 
         logger.info(f"Aligned {len(common)} common samples")
         return snps.loc[common], phenotypes.loc[common]

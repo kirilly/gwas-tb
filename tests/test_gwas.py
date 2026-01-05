@@ -135,10 +135,12 @@ def test_calculate_prps_batch_monomorphic(mock_kinship):
     n = mock_kinship.shape[0]
 
     # One normal variant, one monomorphic
-    snps = np.column_stack([
-        np.random.randint(0, 2, n).astype(float),
-        np.zeros(n),
-    ])
+    snps = np.column_stack(
+        [
+            np.random.randint(0, 2, n).astype(float),
+            np.zeros(n),
+        ]
+    )
 
     eigenvalues, eigenvectors = np.linalg.eigh(mock_kinship)
     prps_scores = calculate_prps_batch(snps, eigenvectors, eigenvalues)

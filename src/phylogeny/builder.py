@@ -87,10 +87,14 @@ class PhylogenyBuilder:
         """Run IQ-TREE."""
         cmd = [
             "iqtree",
-            "-s", str(alignment),
-            "-m", "GTR+G",
-            "-nt", str(self.config.n_threads),
-            "-pre", str(output.with_suffix("")),
+            "-s",
+            str(alignment),
+            "-m",
+            "GTR+G",
+            "-nt",
+            str(self.config.n_threads),
+            "-pre",
+            str(output.with_suffix("")),
             "-fast",
         ]
         try:
