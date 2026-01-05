@@ -1,0 +1,48 @@
+project:
+  name: "tb-gwas-debug"
+  random_seed: 42
+  n_jobs: 2
+  log_level: "DEBUG"
+
+data:
+  snp_matrix: "data/processed/snps_small.h5"
+  phenotypes: "data/processed/phenotypes.csv"
+  who_catalogue: "data/external/who_catalogue_2024.xlsx"
+  alignment: "data/processed/alignment_small.fasta"
+  tree: ""
+
+qc:
+  min_maf: 0.05
+  max_missing_rate: 0.1
+  min_samples_per_class: 10
+
+phylogeny:
+  method: "fasttree"
+  kinship_method: "tree"
+  n_threads: 2
+
+gwas:
+  method: "lmm"
+  covariates: []
+  p_threshold: 0.001
+  fdr_threshold: 0.1
+
+drugs:
+  order: ["RIF", "INH"]
+  conditional: false
+
+abess:
+  max_features: 20
+  n_iterations: 1
+  cv_folds: 3
+
+epistasis:
+  known_pairs:
+    - ["rpoB", "rpoC"]
+  p_threshold: 0.01
+
+output:
+  results_dir: "results/debug/"
+  cache_dir: "cache/debug/"
+  figures_dir: "results/debug/figures/"
+  logs_dir: "logs/debug/"

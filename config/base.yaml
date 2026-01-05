@@ -1,0 +1,51 @@
+project:
+  name: "tb-gwas"
+  random_seed: 42
+  n_jobs: 4
+  log_level: "INFO"
+
+data:
+  snp_matrix: "data/processed/snps.h5"
+  phenotypes: "data/processed/phenotypes.csv"
+  who_catalogue: "data/external/who_catalogue_2024.xlsx"
+  alignment: "data/processed/alignment.fasta"
+  tree: ""
+
+qc:
+  min_maf: 0.01
+  max_missing_rate: 0.05
+  min_samples_per_class: 20
+
+phylogeny:
+  method: "fasttree"
+  kinship_method: "tree"
+  n_threads: 4
+
+gwas:
+  method: "lmm"
+  covariates: []
+  p_threshold: 5e-8
+  fdr_threshold: 0.05
+
+drugs:
+  order: ["RIF", "INH", "FQ", "STR", "EMB", "PZA"]
+  conditional: true
+
+abess:
+  max_features: 50
+  n_iterations: 2
+  cv_folds: 5
+
+epistasis:
+  known_pairs:
+    - ["rpoB", "rpoC"]
+    - ["rpoB", "rpoA"]
+    - ["katG", "ahpC"]
+    - ["gyrA", "rpoC"]
+  p_threshold: 0.001
+
+output:
+  results_dir: "results/"
+  cache_dir: "cache/"
+  figures_dir: "results/figures/"
+  logs_dir: "logs/"
