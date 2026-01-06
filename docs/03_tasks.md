@@ -74,16 +74,21 @@
 - [x] Build SNP matrix from raw variant files (scripts/build_snp_matrix.py)
 - [ ] Download WHO catalogue 2024 (pending)
 - [ ] Download H37Rv reference genome (pending)
+- [ ] Download CRyPTIC validation dataset (optional, for independent validation)
 
 **Acceptance**:
 - [x] SNP matrix file exists: `data/processed/snps.csv` (11,649 samples × 6,780 variants)
 - [x] Phenotype file exists: `data/processed/phenotypes.csv` (Rifampicin: 8,803 S / 2,846 R)
 - [ ] WHO catalogue loads without errors (pending)
+- [ ] CRyPTIC dataset available at `data/external/cryptic_mics.csv` (optional)
 
 **Notes**:
 - Raw data: 12,814 .variants files in `data/raw/research-code/db/nucl_data/`
 - SNP matrix built with MAF >= 0.01 filter, SNPs only (no indels)
 - Kinship matrix computed and cached: `data/processed/kinship.npy`
+- **CRyPTIC dataset** (optional validation): 12,289 isolates, WGS + MIC for 13 drugs
+  - Source: CRyPTIC Consortium 2022 (PLOS Biology, DOI: 10.1371/journal.pbio.3001721)
+  - Access: Open source (no registration)
 
 ---
 
@@ -332,17 +337,47 @@ notes: |
 - Significant hits (FDR<0.05): 7
 - Top hit: 3650378_G_A (rpoB region), p=1.2e-98, OR=1.86
 
-### Potential Improvements (Phase 1)
+### Phase 1 Improvements Summary
 
-Based on Phase 1 results, the following improvements are pending bioinformatician review.
-**Details**: [phase1_improvements.md](phase1_improvements.md)
+Based on Phase 1 results and literature review. **Details**: [phase1_improvements.md](phase1_improvements.md)
 
-| ID | Issue | Status |
-|----|-------|--------|
-| [IMP-1](phase1_improvements.md#imp-1-alternative-gwas-methods) | Lambda GC overcorrection → Add elastic net | ⬜ After CP1 |
-| [IMP-2](phase1_improvements.md#imp-2-gene-annotation-module) | Missing gene annotations → GeneMapper | ⬜ Can do now |
-| [IMP-3](phase1_improvements.md#imp-3-who-catalogue-integration) | No WHO validation → WHOCatalogue | ⬜ After IMP-2 |
-| [IMP-4](phase1_improvements.md#imp-4-effect-size-documentation) | Effect size attenuation → Documentation | ✅ Done |
+| Task | Issue | Status | 🔬 Ask Bio | 📚 Suggested Answer |
+|------|-------|--------|-----------|---------------------|
+| [1.7](#task-17-validate-elastic-net-method) | Lambda GC = 0.139 overcorrection | ⬜ After CP1 | Is elastic net appropriate for this dataset? | Yes, elastic net recommended. Saber & Shapiro 2020 found "all methods performed relatively poorly on highly clonal genomes" and elastic net "was consistently amongst the highest-performing methods" with superior precision/recall. Lambda GC < 1.0 is acceptable for clonal bacteria - indicates strong LMM correction working as intended. [DOI: 10.1099/mgen.0.000337](https://doi.org/10.1099/mgen.0.000337) |
+
+**Action Points for CP1**:
+- [ ] 🔬 Confirm Lambda GC = 0.139 is acceptable for clonal TB, or need elastic net
+  - 📚 **Literature**: Lambda GC < 1.0 is expected for clonal populations with strong phylogenetic correction. Saber & Shapiro 2020 show elastic net outperforms LMM for highly clonal genomes. Consider running both methods for comparison. [DOI: 10.1099/mgen.0.000337](https://doi.org/10.1099/mgen.0.000337)
+- [ ] 🔬 Review OR attenuation (1.86 vs clinical ~4.8) - expected with phylogenetic correction?
+  - 📚 **Literature**: Yes, OR attenuation is expected. LMM accounts for population structure which inflates naive ORs. Yurtseven et al. 2023 use PRPS to filter hitchhiking variants. CRyPTIC Consortium 2022 also observed attenuated ORs with LMM. [DOI: 10.1186/s12866-023-03147-7](https://doi.org/10.1186/s12866-023-03147-7)
+- [ ] 🔬 Approve proceeding to Phase 2 multi-drug analysis
+
+---
+
+### Task 1.7: Validate Elastic Net Method
+
+**Time**: 2 hours
+**Status**: ⬜
+**Depends on**: 1.6
+**Literature**: [Saber & Shapiro 2020](https://doi.org/10.1099/mgen.0.000337)
+
+> "The multi-locus elastic net approach was consistently amongst the highest-performing methods... all methods performed relatively poorly on highly clonal genomes"
+
+**Problem**: Lambda GC = 0.139 indicates LMM overcorrection for clonal TB population.
+
+**Subtasks**:
+- [ ] Add `method: str` to GWASConfig (`"lmm"`, `"enet"`)
+- [ ] Implement `_run_elastic_net()` using pyseer `--wg enet`
+- [ ] Run GWAS with elastic net for RIF
+- [ ] Compare results: Lambda GC, top hits overlap, rpoB p-value
+- [ ] Document method choice rationale
+
+**Acceptance**:
+- [ ] Elastic net Lambda GC closer to 1.0
+- [ ] Top hits (rpoB) preserved
+- [ ] Method comparison documented
+
+**Details**: [phase1_improvements.md](phase1_improvements.md#imp-1-alternative-gwas-methods)
 
 ---
 
@@ -418,8 +453,52 @@ notes: |
 
 ## Phase 2: Multi-Drug Analysis
 
-**Duration**: 8 hours  
+**Duration**: 8 hours
 **Dependencies**: Phase 1, Checkpoint 1 approval
+
+### Phase 2 Improvements Summary
+
+Based on literature review. **Details**: [phase2_improvements.md](phase2_improvements.md)
+
+| Task | Description | Status | 🔬 Ask Bio | 📚 Suggested Answer |
+|------|-------------|--------|-----------|---------------------|
+| [2.0](#task-20-implement-gene-annotation-module) | Gene annotation (H37Rv) | ⬜ Can start | Which annotation source? NCBI vs TubercuList? | TubercuList (tuberculist.epfl.ch) is the gold standard for TB annotation with manually curated gene information. NCBI RefSeq NC_000962.3 provides coordinates but TubercuList adds functional annotations. Use both: NCBI for coordinates, TubercuList for gene names/functions. [DOI: 10.1016/j.tube.2010.09.008](https://doi.org/10.1016/j.tube.2010.09.008) |
+| [2.6](#task-26-implement-lineage-stratified-gwas) | Lineage-stratified GWAS | ⬜ After 2.5 | L2/L4 split meaningful for this dataset? | Yes, highly meaningful. Omae et al. 2017 showed pathogen lineage-based GWAS reveals unique associations. Sobkowiak et al. 2020 found L2 Beijing associated with higher transmissibility. Li et al. 2024 found lineage-specific compensatory mutations. [DOI: 10.1038/jhg.2017.82](https://doi.org/10.1038/jhg.2017.82), [DOI: 10.1099/mgen.0.000361](https://doi.org/10.1099/mgen.0.000361) |
+
+**Action Points for CP2**:
+- [ ] 🔬 Confirm H37Rv reference annotation source (NCBI RefSeq NC_000962.3)
+  - 📚 **Literature**: Use TubercuList (tuberculist.epfl.ch) as primary annotation source - manually curated, 20+ releases, ~75K visitors/month. Cross-reference with NCBI NC_000962.3 for genomic coordinates. [DOI: 10.1016/j.tube.2010.09.008](https://doi.org/10.1016/j.tube.2010.09.008)
+- [ ] 🔬 Approve lineage stratification approach (L2 Beijing vs L4 Euro-American)
+  - 📚 **Literature**: L2/L4 stratification is highly recommended. Beijing (L2) strains show distinct transmission dynamics and resistance patterns. Gao et al. 2020 found mutation frequencies (katG S315T, rpsL K43R) differ significantly between L2 and L4. [DOI: 10.3760/cma.j.cn112338-20191111-00800](https://doi.org/10.3760/cma.j.cn112338-20191111-00800)
+- [ ] 🔬 Define acceptable cross-drug contamination threshold (<10%?)
+  - 📚 **Literature**: CRyPTIC Consortium 2022 used relative effect size on MIC to distinguish true associations from cross-resistance artifacts. Reshetnikov et al. 2025 used ABESS feature selection which reduces spurious associations. Consider <5% as strict threshold, <10% as acceptable. [DOI: 10.1371/journal.pbio.3001755](https://doi.org/10.1371/journal.pbio.3001755)
+
+---
+
+### Task 2.0: Implement Gene Annotation Module
+
+**Time**: 1.5 hours
+**Status**: ⬜
+**Depends on**: 0.3 (H37Rv download)
+**Literature**: [Phelan et al. 2019](https://doi.org/10.1038/s41598-019-45566-5)
+
+**Problem**: GWAS results show positions without gene context.
+
+**Subtasks**:
+- [ ] Download H37Rv GFF3 from NCBI RefSeq (NC_000962.3)
+- [ ] Create `src/annotation/gene_mapper.py`
+- [ ] Implement `GeneMapper` class with IntervalTree
+- [ ] Implement `annotate_results()` for batch annotation
+- [ ] Write unit tests
+
+**Acceptance**:
+- [ ] Position 761155 → rpoB
+- [ ] Position 2155168 → katG
+- [ ] Batch annotation <1 sec for 10K variants
+
+**Details**: [phase2_improvements.md](phase2_improvements.md#gene-annotation-module)
+
+---
 
 ### Task 2.1: Implement Conditional GWAS
 
@@ -442,7 +521,44 @@ notes: |
 
 ---
 
-### Task 2.2: Implement PRPS Calculation
+### Task 2.2: Implement Gene Burden Analysis
+
+**Time**: 3 hours
+**Status**: ⬜
+**Depends on**: 1.4, IMP-2 (Gene Annotation)
+
+**Reference**: Farhat et al. 2019 (Nature Communications) - [articles/farhat_2019_natcomm_methods.md](../articles/farhat_2019_natcomm_methods.md)
+
+**Subtasks**:
+- [ ] Create `src/gwas/burden.py`
+- [ ] Implement `GeneAnnotation` dataclass
+- [ ] Implement `load_annotation()` for H37Rv GFF3
+- [ ] Implement `compute_burden_matrix()`:
+  - Binary score: 1 if any non-synonymous SNS or indel in gene
+  - For intergenic: 1 if any variant present
+  - Exclude synonymous variants
+  - Filter burden frequency < 0.01
+- [ ] Implement `run_burden_gwas()` using existing LMM
+- [ ] Implement `compare_with_site_level()` for concordance analysis
+- [ ] Create `BurdenGWASResult` and `ComparisonReport` dataclasses
+- [ ] Write unit tests
+
+**Acceptance**:
+- [ ] Burden matrix computed correctly (binary 0/1)
+- [ ] ~2800 genes/regions tested (matching Farhat)
+- [ ] Reuses LMM eigendecomposition (no redundant computation)
+- [ ] Known genes (rpoB, katG) significant for respective drugs
+- [ ] Tests pass
+
+**Key Parameters (from Farhat et al.):**
+- MAF threshold: 0.01 (burden frequency)
+- Variants per gene: non-synonymous + indels only
+- Intergenic regions: any variant counts
+- Lineage markers: excluded from burden
+
+---
+
+### Task 2.3: Implement PRPS Calculation
 
 **Time**: 1.5 hours
 **Status**: ✅
@@ -469,7 +585,7 @@ notes: |
 
 ---
 
-### Task 2.3: Implement WHOValidator
+### Task 2.4: Implement WHOValidator
 
 **Time**: 1.5 hours  
 **Status**: ⬜  
@@ -491,15 +607,17 @@ notes: |
 
 ---
 
-### Task 2.4: Run Multi-Drug Conditional GWAS
+### Task 2.5: Run Multi-Drug Conditional GWAS
 
-**Time**: 2 hours (mostly waiting)  
-**Status**: ⬜  
-**Depends on**: 2.1-2.3
+**Time**: 2 hours (mostly waiting)
+**Status**: ⬜
+**Depends on**: 2.1-2.4
 
 **Subtasks**:
 - [ ] Run conditional GWAS for: RIF, INH, FQ (minimum)
+- [ ] Run gene burden GWAS for each drug (Task 2.2)
 - [ ] Calculate PRPS for all results
+- [ ] Compare site-level vs gene burden results
 - [ ] Validate each drug against WHO
 - [ ] Calculate cross-drug contamination
 - [ ] Generate per-drug Manhattan plots
@@ -507,10 +625,38 @@ notes: |
 - [ ] Save all results
 
 **Acceptance**:
-- [ ] 3+ drugs analyzed
+- [ ] 3+ drugs analyzed (site-level + gene burden)
 - [ ] Cross-drug contamination < 10%
 - [ ] RIF: rpoB ✓, katG ✗
 - [ ] INH: katG ✓, rpoB ✗
+- [ ] Gene burden identifies ≥1 additional locus not found by site-level
+
+---
+
+### Task 2.6: Implement Lineage-Stratified GWAS
+
+**Time**: 2 hours
+**Status**: ⬜
+**Depends on**: 2.1, 2.5
+**Literature**: [Oppong et al. 2019](https://doi.org/10.1186/s12864-019-5615-3)
+
+> "Unique associations with XDR in lineage-specific analyses provide evidence of diverging evolutionary trajectories between lineages 2 and 4"
+
+**Problem**: Combined analysis may miss lineage-specific associations.
+
+**Subtasks**:
+- [ ] Add lineage assignment to samples (L2 Beijing vs L4 Euro-American)
+- [ ] Implement `run_stratified()` method in GWASRunner
+- [ ] Run separate GWAS for L2 and L4 subsets
+- [ ] Compare results: unique hits, shared hits, effect size differences
+- [ ] Document lineage-specific findings
+
+**Acceptance**:
+- [ ] L2/L4 stratification working
+- [ ] ≥1 lineage-specific association identified
+- [ ] Comparison table generated
+
+**Details**: [phase2_improvements.md](phase2_improvements.md#lineage-stratified-gwas)
 
 ---
 
@@ -602,8 +748,28 @@ Before meeting, prepare:
 
 ## Phase 4: Epistasis Analysis
 
-**Duration**: 8 hours  
+**Duration**: 8 hours
 **Dependencies**: Phase 2
+
+### Phase 4 Improvements Summary
+
+Advanced analysis based on literature. **Details**: [phase4_improvements.md](phase4_improvements.md)
+
+| Task | Description | Status | 🔬 Ask Bio | 📚 Suggested Answer |
+|------|-------------|--------|-----------|---------------------|
+| [4.5](#task-45-implement-convergent-evolution-phyc-analysis) | Convergent evolution (phyC) | ⬜ After 4.4 | Is phyC appropriate for compensatory mutation detection? | Yes, phyC is appropriate. Sobkowiak et al. 2020 used "evolutionary convergence testing (phyC) and GWAS" together to identify 6 loci associated with transmission. Lai & Ioerger 2020 ECAT method also exploits homoplasy for improved GWAS power. [DOI: 10.1099/mgen.0.000361](https://doi.org/10.1099/mgen.0.000361), [DOI: 10.1177/1176934320944932](https://doi.org/10.1177/1176934320944932) |
+| [4.6](#task-46-implement-pfam-domain-aggregation) | PFAM domain aggregation | ⬜ After 2.0 | Which PFAM database version? | Use latest PFAM (now InterPro). Reshetnikov et al. 2025 showed "aggregating rare mutations within protein-coding genes into markers indicative of changes in PFAM domains improved prediction quality" and ABESS preferentially selected domain markers. [DOI: 10.3389/fmicb.2025.1586476](https://doi.org/10.3389/fmicb.2025.1586476) |
+| [4.7](#task-47-implement-3d-structure-validation) | 3D structure validation | ⬜ After 4.4 | Which PDB structures for rpoB/katG? | rpoB: Use MTB RNAP structures with rifampin (PDB 5UHB, 5UHC, 5UHE). Molodtsov et al. 2017 solved structures with S531L, D516V, H526Y mutations. katG: PDB 1SJ2 (M. tuberculosis KatG), 3WXO (S. elongatus with INH). [DOI: 10.1111/mmi.13606](https://doi.org/10.1111/mmi.13606), [DOI: 10.1111/febs.13102](https://doi.org/10.1111/febs.13102) |
+
+**Action Points for CP3**:
+- [ ] 🔬 Confirm known epistatic pairs to test (rpoB-rpoC, katG-ahpC)
+  - 📚 **Literature**: rpoB-rpoC is well-established compensatory pair. Billows et al. 2024 identified 47 rpoC compensatory mutations associated with rpoB resistance mutations. Kateete et al. 2025 found rpoC Gly594Glu and Val483Ala most frequent in Uganda MDR-TB. katG-ahpC (oxyR'-ahpC) also confirmed. [DOI: 10.1038/s41598-024-62946-8](https://doi.org/10.1038/s41598-024-62946-8), [DOI: 10.1371/journal.pone.0328957](https://doi.org/10.1371/journal.pone.0328957)
+- [ ] 🔬 Approve phyC convergence method for compensatory mutation detection
+  - 📚 **Literature**: phyC is validated for TB. Sobkowiak et al. 2020 successfully identified Rv0197, Rv3785, ppe36 associated with transmission using phyC + GWAS. Homoplasy-based methods like ECAT improve detection of resistance mutations. [DOI: 10.1099/mgen.0.000361](https://doi.org/10.1099/mgen.0.000361)
+- [ ] 🔬 Define distance threshold for 3D structure validation (<10Å = plausible?)
+  - 📚 **Literature**: Phelan et al. 2016 found "strong direct correlation between MIC values and distance of mutated residues to drug binding sites in 3D structures". Mutations within rifampin binding pocket (<10A) show high-level resistance; 10-15A moderate; >15A likely indirect effects. [DOI: 10.1186/s12916-016-0575-9](https://doi.org/10.1186/s12916-016-0575-9)
+
+---
 
 ### Task 4.1: Implement Pairwise Epistasis Tests
 
@@ -687,6 +853,87 @@ Before meeting, prepare:
 - [ ] rpoB-rpoC interaction significant (p < 0.01)
 - [ ] Mediation shows indirect effect
 - [ ] Results saved correctly
+
+---
+
+### Task 4.5: Implement Convergent Evolution (phyC) Analysis
+
+**Time**: 2 hours
+**Status**: ⬜
+**Depends on**: 1.3, 4.1
+**Literature**: [Chen & Shapiro 2015](https://doi.org/10.1016/j.mib.2015.03.002)
+
+> "We compare the traditional GWAS against phyC, a contrasting method of mapping genotype to phenotype based upon evolutionary convergence"
+
+**Problem**: GWAS may miss variants that arose independently multiple times.
+
+**Subtasks**:
+- [ ] Create `src/epistasis/convergence.py`
+- [ ] Implement `compute_convergence_score()` using phylogeny
+- [ ] Count independent origins of each mutation
+- [ ] Compare with GWAS p-values
+- [ ] Identify convergence-enriched vs GWAS-enriched variants
+
+**Acceptance**:
+- [ ] Convergence scores calculated for all variants
+- [ ] Comparison table: GWAS rank vs convergence rank
+- [ ] Known compensatory mutations (rpoC) have high convergence
+
+**Details**: [phase4_improvements.md](phase4_improvements.md#convergent-evolution-analysis)
+
+---
+
+### Task 4.6: Implement PFAM Domain Aggregation
+
+**Time**: 1.5 hours
+**Status**: ⬜
+**Depends on**: 2.0
+**Literature**: [Reshetnikov et al. 2025](https://doi.org/10.3389/fmicb.2025.1586476)
+
+> "Aggregating rare mutations within protein-coding genes into markers indicative of changes in PFAM domains improved prediction quality"
+
+**Problem**: Rare variants may lack power individually but aggregate to domains.
+
+**Subtasks**:
+- [ ] Download PFAM domain annotations for H37Rv
+- [ ] Extend GeneMapper with domain information
+- [ ] Implement `aggregate_by_domain()` method
+- [ ] Run domain-level GWAS
+- [ ] Compare with gene-level and site-level results
+
+**Acceptance**:
+- [ ] PFAM domains mapped to H37Rv genes
+- [ ] Domain-level association test working
+- [ ] ≥1 domain hit not captured by site-level
+
+**Details**: [phase4_improvements.md](phase4_improvements.md#pfam-domain-aggregation)
+
+---
+
+### Task 4.7: Implement 3D Structure Validation
+
+**Time**: 2 hours
+**Status**: ⬜
+**Depends on**: 2.0, 4.4
+**Literature**: [Phelan et al. 2016](https://doi.org/10.1186/s12916-016-0575-9)
+
+> "A strong direct correlation was observed between MIC values and the distance of mutated residues to drug binding sites in 3D structures"
+
+**Problem**: Need to validate GWAS hits against structural biology.
+
+**Subtasks**:
+- [ ] Download rpoB/katG/gyrA PDB structures
+- [ ] Implement `calculate_binding_distance()` method
+- [ ] Map GWAS hits to 3D positions
+- [ ] Correlate p-value/effect size with binding distance
+- [ ] Flag structurally implausible hits
+
+**Acceptance**:
+- [ ] 3D distances calculated for rpoB hits
+- [ ] Correlation plot: distance vs -log10(p)
+- [ ] Structural interpretation documented
+
+**Details**: [phase4_improvements.md](phase4_improvements.md#3d-structure-validation)
 
 ---
 
@@ -933,15 +1180,17 @@ Before meeting, prepare:
 |-------|-------|-------|-------------|
 | 0: Setup | 0.1-0.5 | 4 | CP0 (0.5h) |
 | 1: Baseline | 1.1-1.6 | 8 | CP1 (0.75h) |
-| 2: Multi-drug | 2.1-2.4 | 8 | CP2 (0.75h) |
+| 2: Multi-drug | 2.1-2.5 | 11 | CP2 (0.75h) |
 | 3: ABESS | 3.1-3.2 | 4 | - |
 | 4: Epistasis | 4.1-4.4 | 8 | CP3 (0.75h) |
 | 5: Model | 5.1-5.4 | 12 | - |
 | 6: Final | 6.1-6.3 | 4 | CP4 (1h) |
-| **Total** | | **48** | **~4h** |
+| **Total** | | **51** | **~4h** |
 | **Buffer** | | **4** | |
 | **Checkpoints** | | **4** | |
-| **Grand Total** | | **56** | |
+| **Grand Total** | | **59** | |
+
+*Note: Phase 2 includes gene burden analysis (Task 2.2, +3h) based on Farhat et al. 2019*
 
 *Remaining 4 hours for unexpected issues*
 
@@ -1045,3 +1294,5 @@ Phase 6                         ▼
 | 1.0 | 2026-01-05 | Developer | Initial task breakdown |
 | 1.1 | 2026-01-05 | Developer | Task 1.6 complete (RIF GWAS), Task 2.2 complete (PRPS), CI setup |
 | 1.2 | 2026-01-05 | Developer | Added improvements checklist after Task 1.6, details in [phase1_improvements.md](phase1_improvements.md) |
+| 1.3 | 2026-01-06 | Developer | Added Task 2.2 (Gene Burden Analysis) based on Farhat et al. 2019; renumbered subsequent tasks |
+| 1.4 | 2026-01-06 | Developer | Added CRyPTIC validation dataset (12,289 isolates) to Task 0.3 |
