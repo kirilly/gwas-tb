@@ -346,11 +346,9 @@ Based on Phase 1 results and literature review. **Details**: [phase1_improvement
 | [1.7](#task-17-validate-elastic-net-method) | Lambda GC = 0.139 overcorrection | ⬜ After CP1 | Is elastic net appropriate for this dataset? | Yes, elastic net recommended. Saber & Shapiro 2020 found "all methods performed relatively poorly on highly clonal genomes" and elastic net "was consistently amongst the highest-performing methods" with superior precision/recall. Lambda GC < 1.0 is acceptable for clonal bacteria - indicates strong LMM correction working as intended. [DOI: 10.1099/mgen.0.000337](https://doi.org/10.1099/mgen.0.000337) |
 
 **Action Points for CP1**:
-- [ ] 🔬 Confirm Lambda GC = 0.139 is acceptable for clonal TB, or need elastic net
-  - 📚 **Literature**: Lambda GC < 1.0 is expected for clonal populations with strong phylogenetic correction. Saber & Shapiro 2020 show elastic net outperforms LMM for highly clonal genomes. Consider running both methods for comparison. [DOI: 10.1099/mgen.0.000337](https://doi.org/10.1099/mgen.0.000337)
-- [ ] 🔬 Review OR attenuation (1.86 vs clinical ~4.8) - expected with phylogenetic correction?
-  - 📚 **Literature**: Yes, OR attenuation is expected. LMM accounts for population structure which inflates naive ORs. Yurtseven et al. 2023 use PRPS to filter hitchhiking variants. CRyPTIC Consortium 2022 also observed attenuated ORs with LMM. [DOI: 10.1186/s12866-023-03147-7](https://doi.org/10.1186/s12866-023-03147-7)
-- [ ] 🔬 Approve proceeding to Phase 2 multi-drug analysis
+- [ ] 🔬 Confirm Lambda GC = 0.139 acceptable, or need elastic net
+- [ ] 🔬 Review OR attenuation (1.86 vs clinical ~4.8)
+- [ ] 🔬 Approve proceeding to Phase 2
 
 ---
 
@@ -466,12 +464,9 @@ Based on literature review. **Details**: [phase2_improvements.md](phase2_improve
 | [2.6](#task-26-implement-lineage-stratified-gwas) | Lineage-stratified GWAS | ⬜ After 2.5 | L2/L4 split meaningful for this dataset? | Yes, highly meaningful. Omae et al. 2017 showed pathogen lineage-based GWAS reveals unique associations. Sobkowiak et al. 2020 found L2 Beijing associated with higher transmissibility. Li et al. 2024 found lineage-specific compensatory mutations. [DOI: 10.1038/jhg.2017.82](https://doi.org/10.1038/jhg.2017.82), [DOI: 10.1099/mgen.0.000361](https://doi.org/10.1099/mgen.0.000361) |
 
 **Action Points for CP2**:
-- [ ] 🔬 Confirm H37Rv reference annotation source (NCBI RefSeq NC_000962.3)
-  - 📚 **Literature**: Use TubercuList (tuberculist.epfl.ch) as primary annotation source - manually curated, 20+ releases, ~75K visitors/month. Cross-reference with NCBI NC_000962.3 for genomic coordinates. [DOI: 10.1016/j.tube.2010.09.008](https://doi.org/10.1016/j.tube.2010.09.008)
-- [ ] 🔬 Approve lineage stratification approach (L2 Beijing vs L4 Euro-American)
-  - 📚 **Literature**: L2/L4 stratification is highly recommended. Beijing (L2) strains show distinct transmission dynamics and resistance patterns. Gao et al. 2020 found mutation frequencies (katG S315T, rpsL K43R) differ significantly between L2 and L4. [DOI: 10.3760/cma.j.cn112338-20191111-00800](https://doi.org/10.3760/cma.j.cn112338-20191111-00800)
-- [ ] 🔬 Define acceptable cross-drug contamination threshold (<10%?)
-  - 📚 **Literature**: CRyPTIC Consortium 2022 used relative effect size on MIC to distinguish true associations from cross-resistance artifacts. Reshetnikov et al. 2025 used ABESS feature selection which reduces spurious associations. Consider <5% as strict threshold, <10% as acceptable. [DOI: 10.1371/journal.pbio.3001755](https://doi.org/10.1371/journal.pbio.3001755)
+- [ ] 🔬 Confirm annotation source (NCBI vs TubercuList)
+- [ ] 🔬 Approve L2/L4 lineage stratification
+- [ ] 🔬 Define cross-drug contamination threshold
 
 ---
 
@@ -525,7 +520,7 @@ Based on literature review. **Details**: [phase2_improvements.md](phase2_improve
 
 **Time**: 3 hours
 **Status**: ⬜
-**Depends on**: 1.4, IMP-2 (Gene Annotation)
+**Depends on**: 1.4, 2.0
 
 **Reference**: Farhat et al. 2019 (Nature Communications) - [articles/farhat_2019_natcomm_methods.md](../articles/farhat_2019_natcomm_methods.md)
 
@@ -762,12 +757,9 @@ Advanced analysis based on literature. **Details**: [phase4_improvements.md](pha
 | [4.7](#task-47-implement-3d-structure-validation) | 3D structure validation | ⬜ After 4.4 | Which PDB structures for rpoB/katG? | rpoB: Use MTB RNAP structures with rifampin (PDB 5UHB, 5UHC, 5UHE). Molodtsov et al. 2017 solved structures with S531L, D516V, H526Y mutations. katG: PDB 1SJ2 (M. tuberculosis KatG), 3WXO (S. elongatus with INH). [DOI: 10.1111/mmi.13606](https://doi.org/10.1111/mmi.13606), [DOI: 10.1111/febs.13102](https://doi.org/10.1111/febs.13102) |
 
 **Action Points for CP3**:
-- [ ] 🔬 Confirm known epistatic pairs to test (rpoB-rpoC, katG-ahpC)
-  - 📚 **Literature**: rpoB-rpoC is well-established compensatory pair. Billows et al. 2024 identified 47 rpoC compensatory mutations associated with rpoB resistance mutations. Kateete et al. 2025 found rpoC Gly594Glu and Val483Ala most frequent in Uganda MDR-TB. katG-ahpC (oxyR'-ahpC) also confirmed. [DOI: 10.1038/s41598-024-62946-8](https://doi.org/10.1038/s41598-024-62946-8), [DOI: 10.1371/journal.pone.0328957](https://doi.org/10.1371/journal.pone.0328957)
-- [ ] 🔬 Approve phyC convergence method for compensatory mutation detection
-  - 📚 **Literature**: phyC is validated for TB. Sobkowiak et al. 2020 successfully identified Rv0197, Rv3785, ppe36 associated with transmission using phyC + GWAS. Homoplasy-based methods like ECAT improve detection of resistance mutations. [DOI: 10.1099/mgen.0.000361](https://doi.org/10.1099/mgen.0.000361)
-- [ ] 🔬 Define distance threshold for 3D structure validation (<10Å = plausible?)
-  - 📚 **Literature**: Phelan et al. 2016 found "strong direct correlation between MIC values and distance of mutated residues to drug binding sites in 3D structures". Mutations within rifampin binding pocket (<10A) show high-level resistance; 10-15A moderate; >15A likely indirect effects. [DOI: 10.1186/s12916-016-0575-9](https://doi.org/10.1186/s12916-016-0575-9)
+- [ ] 🔬 Confirm epistatic pairs (rpoB-rpoC, katG-ahpC)
+- [ ] 🔬 Approve phyC for compensatory mutations
+- [ ] 🔬 Define 3D distance threshold (<10Å?)
 
 ---
 
