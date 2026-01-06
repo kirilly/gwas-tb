@@ -332,6 +332,18 @@ notes: |
 - Significant hits (FDR<0.05): 7
 - Top hit: 3650378_G_A (rpoB region), p=1.2e-98, OR=1.86
 
+### Potential Improvements (Phase 1)
+
+Based on Phase 1 results, the following improvements are pending bioinformatician review.
+**Details**: [phase1_improvements.md](phase1_improvements.md)
+
+| ID | Issue | Status |
+|----|-------|--------|
+| [IMP-1](phase1_improvements.md#imp-1-alternative-gwas-methods) | Lambda GC overcorrection → Add elastic net | ⬜ After CP1 |
+| [IMP-2](phase1_improvements.md#imp-2-gene-annotation-module) | Missing gene annotations → GeneMapper | ⬜ Can do now |
+| [IMP-3](phase1_improvements.md#imp-3-who-catalogue-integration) | No WHO validation → WHOCatalogue | ⬜ After IMP-2 |
+| [IMP-4](phase1_improvements.md#imp-4-effect-size-documentation) | Effect size attenuation → Documentation | ✅ Done |
+
 ---
 
 ## 🔬 CHECKPOINT 1: Baseline Evaluation
@@ -1032,3 +1044,4 @@ Phase 6                         ▼
 |---------|------|--------|---------|
 | 1.0 | 2026-01-05 | Developer | Initial task breakdown |
 | 1.1 | 2026-01-05 | Developer | Task 1.6 complete (RIF GWAS), Task 2.2 complete (PRPS), CI setup |
+| 1.2 | 2026-01-05 | Developer | Added improvements checklist after Task 1.6, details in [phase1_improvements.md](phase1_improvements.md) |

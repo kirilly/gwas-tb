@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  ci:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,21 +18,51 @@ jobs:
         with:
           pixi-version: v0.39.2
 
-      # 1. Lint first (fastest, catches style issues early)
-      - name: Lint (ruff check)
+      - name: Ruff check
         run: pixi run ruff check src/ tests/
 
-      - name: Format check (ruff format)
+      - name: Ruff format
         run: pixi run ruff format --check src/ tests/
 
-      # 2. Type check (catches type errors before runtime)
-      - name: Type check (mypy)
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.39.2
+
+      - name: Mypy
         run: pixi run mypy src/
 
-      # 3. Unit tests (fast, isolated tests)
-      - name: Unit tests
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.39.2
+
+      - name: Pytest (unit)
         run: pixi run pytest tests/ -v --tb=short --ignore=tests/test_integration.py
 
-      # 4. Integration tests (slower, end-to-end tests)
-      - name: Integration tests
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test-unit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.39.2
+
+      - name: Pytest (integration)
         run: pixi run pytest tests/test_integration.py -v --tb=short

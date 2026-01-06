@@ -52,6 +52,13 @@ print(result.get_top_hits(10))
 |---------|------|------|-------|
 | 11K samples × 7K variants | ~2.5 min | <3 sec | ~3 min |
 
+## Analysis Reports
+
+See `results/reports/` for GWAS analysis results:
+- [Reports Index](results/reports/README.md) - All reports by phase with status tracking
+- **Phase 1 (Baseline GWAS)**:
+  - [Rifampicin Baseline Report](results/reports/phase1/2026-01-05_rifampicin_baseline.md) - rpoB top hit (p=1.2e-98), λGC=0.139
+
 ## Documentation
 
 See `docs/` for detailed specifications:
