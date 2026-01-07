@@ -346,7 +346,7 @@ Based on Phase 1 results and literature review. **Details**: [phase1_improvement
 | [1.7](#task-17-validate-elastic-net-method) | Lambda GC = 0.139 overcorrection | ⬜ After CP1 | Is elastic net appropriate for this dataset? | Yes, elastic net recommended. Saber & Shapiro 2020 found "all methods performed relatively poorly on highly clonal genomes" and elastic net "was consistently amongst the highest-performing methods" with superior precision/recall. Lambda GC < 1.0 is acceptable for clonal bacteria - indicates strong LMM correction working as intended. [DOI: 10.1099/mgen.0.000337](https://doi.org/10.1099/mgen.0.000337) |
 
 **Action Points for CP1**:
-- [ ] 🔬 Confirm Lambda GC = 0.139 acceptable, or need elastic net
+- [x] 🔬 Confirm Lambda GC = 0.139 acceptable, or need elastic net → ✅ **Accepted** (2026-01-07): "Overcorrection в этой схеме уж точно меньше чем у нас, так что она имеет право быть такой, как есть". Task 1.7 kept for validation.
 - [ ] 🔬 Review OR attenuation (1.86 vs clinical ~4.8)
 - [ ] 🔬 Approve proceeding to Phase 2
 
@@ -462,6 +462,7 @@ Based on literature review. **Details**: [phase2_improvements.md](phase2_improve
 |------|-------------|--------|-----------|---------------------|
 | [2.0](#task-20-implement-gene-annotation-module) | Gene annotation (H37Rv) | ⬜ Can start | Which annotation source? NCBI vs TubercuList? | TubercuList (tuberculist.epfl.ch) is the gold standard for TB annotation with manually curated gene information. NCBI RefSeq NC_000962.3 provides coordinates but TubercuList adds functional annotations. Use both: NCBI for coordinates, TubercuList for gene names/functions. [DOI: 10.1016/j.tube.2010.09.008](https://doi.org/10.1016/j.tube.2010.09.008) |
 | [2.6](#task-26-implement-lineage-stratified-gwas) | Lineage-stratified GWAS | ⬜ After 2.5 | L2/L4 split meaningful for this dataset? | Yes, highly meaningful. Omae et al. 2017 showed pathogen lineage-based GWAS reveals unique associations. Sobkowiak et al. 2020 found L2 Beijing associated with higher transmissibility. Li et al. 2024 found lineage-specific compensatory mutations. [DOI: 10.1038/jhg.2017.82](https://doi.org/10.1038/jhg.2017.82), [DOI: 10.1099/mgen.0.000361](https://doi.org/10.1099/mgen.0.000361) |
+| [2.7](#task-27-predictive-ability-validation) | Validate predictive ability | ⬜ After 2.1 | Is ~98% accuracy achievable? | Known resistance mutations achieve ~98% sensitivity for RIF/INH. Compare GWAS hits vs known mutations from WHO catalog. |
 
 **Action Points for CP2**:
 - [ ] 🔬 Confirm annotation source (NCBI vs TubercuList)
@@ -652,6 +653,31 @@ Based on literature review. **Details**: [phase2_improvements.md](phase2_improve
 - [ ] Comparison table generated
 
 **Details**: [phase2_improvements.md](phase2_improvements.md#lineage-stratified-gwas)
+
+---
+
+### Task 2.7: Predictive Ability Validation
+
+**Time**: 1.5 hours
+**Status**: ⬜
+**Depends on**: 2.1 (multi-drug complete)
+**Suggested by**: Bioinformatics review (2026-01-07)
+
+> "Интересно было бы ещё глянуть на предсказательную способность, если ориентироваться только на эти мутации (она для RIF и INH порядка 98% по известным мутациям)"
+
+**Problem**: Need to validate GWAS-identified mutations against known resistance mutation benchmarks.
+
+**Subtasks**:
+- [ ] Obtain WHO catalog of known resistance mutations
+- [ ] Calculate sensitivity: GWAS hits ∩ known mutations / known mutations
+- [ ] Calculate precision: GWAS hits ∩ known mutations / GWAS hits
+- [ ] Compare against ~98% benchmark for RIF/INH
+- [ ] Document novel candidates (GWAS hits not in catalog)
+
+**Acceptance**:
+- [ ] Sensitivity ≥90% for RIF/INH against known mutations
+- [ ] Precision documented for each drug
+- [ ] Novel candidates flagged for review
 
 ---
 
